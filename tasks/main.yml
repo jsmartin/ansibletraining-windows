@@ -1,0 +1,59 @@
+---
+# tasks file for winders-app
+- name: Install required Windows features
+  win_feature:
+    name: Web-Webserver,Web-Asp-Net45,Web-Mgmt-Console,Web-Scripting-Tools
+    state: present
+#    restart: yes
+    include_sub_features: yes
+    include_management_tools: yes
+  register: install_features
+
+#- name: wait for reboot
+#  local_action:
+#    module: wait_for
+#      host: "{{ ansible_default_ipv4.address }}"
+#      port: 5986
+#      delay: 2
+#      timeout: 300
+
+- name: Reboot if needed
+  when: install_features.changed 
+  win_reboot:
+
+- name: Install git
+  win_chocolatey:
+    name: git
+    state: present
+
+- name: Create site directory
+  win_file:
+    path: 'c:\inetpub\webapps\lameapp'
+    state: directory
+  register: directory_create
+
+#- name: Create IIS site
+#  win_iis_website:
+#    name: lameapp_site
+#    physical_path: 'c:\inetpub\webapps\lameapp'
+
+- name: Create web app
+  win_iis_webapplication:
+#    site: lameapp_site
+    site: Default Web Site
+    name: lameapp
+    physical_path: 'c:\inetpub\webapps\lameapp'
+
+#- name: Deploy website
+#  win_get_url:
+#    url: "https://raw.githubusercontent.com/jsmartin/winlameapp/master/lameapp.aspx"
+#    dest: 'c:\inetpub\webapps\lameapp\lameapp.aspx'
+
+- name: Retrieve application
+  raw: 'git clone https://github.com/jsmartin/winlameapp c:\inetpub\webapps\lameapp\'
+  when: directory_create.changed
+
+- name: Update Application
+  raw: 'cd c:\inetpub\webapps\lameapp; git pull '
+  when: not directory_create.changed
+ 
